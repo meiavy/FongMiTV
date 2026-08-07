@@ -1,0 +1,122 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: '21'
+  GRADLE_OPTS: -Xmx2048m -Dfile.encoding=UTF-8
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-home-cache-cleanup: true
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Create local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Build Leanback ARM64
+        run: ./gradlew assembleLeanbackArm64_v8aRelease --no-daemon
+
+      - name: Build Leanback ARMv7
+        run: ./gradlew assembleLeanbackArmeabi_v7aRelease --no-daemon
+
+      - name: Build Mobile ARM64
+        run: ./gradlew assembleMobileArm64_v8aRelease --no-daemon
+
+      - name: Build Mobile ARMv7
+        run: ./gradlew assembleMobileArmeabi_v7aRelease --no-daemon
+
+      - name: List APKs
+        run: ls -la Release/apk/
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: fongmi-apks
+          path: Release/apk/
+
+  build-signed:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-home-cache-cleanup: true
+
+      - name: Create local.properties with signing
+        env:
+          STORE_FILE: ${{ secrets.STORE_FILE }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          echo "storeFile=${{ env.STORE_FILE }}" >> local.properties
+          echo "keyAlias=${{ env.KEY_ALIAS }}" >> local.properties
+          echo "storePassword=${{ env.STORE_PASSWORD }}" >> local.properties
+          echo "keyPassword=${{ env.KEY_PASSWORD }}" >> local.properties
+
+      - name: Create keystore
+        env:
+          STORE_FILE_B64: ${{ secrets.STORE_FILE }}
+        run: |
+          if [ -n "$STORE_FILE_B64" ]; then
+            echo "$STORE_FILE_B64" | base64 -d > app/keystore.jks
+          fi
+
+      - name: Update local.properties with keystore path
+        run: |
+          if [ -f app/keystore.jks ]; then
+            sed -i 's|storeFile=.*|storeFile=app/keystore.jks|' local.properties
+          fi
+
+      - name: Build all release variants
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: fongmi-signed-apks
+          path: Release/apk/
