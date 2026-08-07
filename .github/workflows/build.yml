@@ -43,6 +43,10 @@ jobs:
       - name: Create local.properties
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
+          echo "storeFile=keystore.jks" >> local.properties
+          echo "keyAlias=alias" >> local.properties
+          echo "storePassword=password" >> local.properties
+          echo "keyPassword=password" >> local.properties
 
       - name: Build Leanback ARM64
         run: ./gradlew assembleLeanbackArm64_v8a --no-daemon
