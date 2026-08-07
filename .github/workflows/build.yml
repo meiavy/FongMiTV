@@ -45,25 +45,25 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
       - name: Build Leanback ARM64
-        run: ./gradlew assembleLeanbackArm64_v8aRelease --no-daemon
+        run: ./gradlew assembleLeanbackArm64_v8a --no-daemon
 
       - name: Build Leanback ARMv7
-        run: ./gradlew assembleLeanbackArmeabi_v7aRelease --no-daemon
+        run: ./gradlew assembleLeanbackArmeabi_v7a --no-daemon
 
       - name: Build Mobile ARM64
-        run: ./gradlew assembleMobileArm64_v8aRelease --no-daemon
+        run: ./gradlew assembleMobileArm64_v8a --no-daemon
 
       - name: Build Mobile ARMv7
-        run: ./gradlew assembleMobileArmeabi_v7aRelease --no-daemon
+        run: ./gradlew assembleMobileArmeabi_v7a --no-daemon
 
       - name: List APKs
-        run: ls -la Release/apk/
+        run: ls -la app/build/outputs/apk/*/*/
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: fongmi-apks
-          path: Release/apk/
+          path: app/build/outputs/apk/
 
   build-signed:
     runs-on: ubuntu-latest
